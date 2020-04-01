@@ -1,3 +1,9 @@
 /venv/
 
 .idea
+
+/build/
+
+/dist/
+
+/tdlogging.egg-info/
