@@ -1,6 +1,6 @@
 Class Based Logger for Python
 
-#Installation
+# Installation
 
 ```bash
 pip install tdlogging
