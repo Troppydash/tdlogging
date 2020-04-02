@@ -44,9 +44,8 @@ class Fib:
 Fib.get_n(9)
 ```
 ```bash
-$ python fib.py
+> python fib.py
 
-###
 ┎──────────TDLogger──────────┒
 ┃  --Method get_n Executed-- ┃
 ┃ Arguments: {               ┃
@@ -57,4 +56,4 @@ $ python fib.py
 ┃ Return Value: 21           ┃
 ┃ Return Type: <class 'int'> ┃
 ┖────────────────────────────┚
-###```
+```
