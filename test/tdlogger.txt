@@ -1,2 +1,1 @@
-exception = true
-exec = true
+exec = True

@@ -8,7 +8,7 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
 
 setup_args = dict(
     name='tdlogging',
-    version='0.0.3',
+    version='0.0.4',
     description='Classed based logger for Python',
     long_description_content_type="text/markdown",
     long_description=README + '\n\n' + HISTORY,

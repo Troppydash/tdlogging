@@ -13,8 +13,8 @@ class TDPrinter:
 
         # Get width
         max_length = [len(i) for i in messages]
-        max_length.append(len(title))
-        width_without_padding = min(100, max(max_length) + 4)
+        max_length.append(len(title) + 4)
+        width_without_padding = min(100, max(max(max_length) + 4, 40))
 
         # Print title
         side_length = (width_without_padding - 10) / 2

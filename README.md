@@ -13,6 +13,8 @@ tdlogger.txt
 - `time` log time elapsed
 - `return` log return value
 - `exec` log count, time, and return
+- `poll` whether to poll for tdlogger.txt changes
+- `poll_period` seconds between each poll
 
 
 

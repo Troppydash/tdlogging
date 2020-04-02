@@ -1,5 +1,9 @@
 # Change log
 
+## [0.0.4] - 2020-04-02
+
+Fixed unable to install
+
 ## [0.0.3] - 2020-04-02
 
 Fixed Markdown file
