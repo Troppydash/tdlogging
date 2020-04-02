@@ -1,5 +1,6 @@
-from . import tdlogger
+from . import tdlogger, tdprinter
 
 __all__ = [
-    'tdlogger'
+    'tdlogger',
+    'tdprinter'
 ]
