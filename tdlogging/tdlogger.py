@@ -34,6 +34,7 @@ class TDLogger:
         # A config is required
         if config is None:
             raise Exception("No Logger Config Specified")
+
         # Set config
         self.config = config
         print(TDPrinter.boxify("Configuration", TDLogger.get_obj_prettified("Configuration", config)))
