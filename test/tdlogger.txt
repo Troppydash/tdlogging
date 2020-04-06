@@ -1,1 +1,7 @@
+exception= False
+count = False
 exec = True
+time = False
+return = False
+poll = True
+poll_period = 5

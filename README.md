@@ -12,21 +12,26 @@ tdlogger.txt
 - `count` log count
 - `time` log time elapsed
 - `return` log return value
-- `exec` log count, time, and return
+- `exec` log all
 - `poll` whether to poll for tdlogger.txt changes
 - `poll_period` seconds between each poll
 
-
+TDLogger
+- `file_path` path of tdlogger.txt
+- `config` custom config that overrides tdlogger.txt
+- `alias` a name for your logger
 
 ```python
 # fib.py
 
-from tdlogging.tdlogger import create_logger
+from tdlogging.tdlogger import TDLogger
 
-logger = create_logger(path="/path/to/tdlogger.txt/")
+logger = TDLogger(alias="Fib Logger")
 
-@logger.get_logger()
+
+@logger.config()
 class Fib:
+
     @staticmethod
     def get_n(n):
         a = 0
@@ -43,19 +48,56 @@ class Fib:
                 b = c
             return b
 
-Fib.get_n(9)
+
+print(Fib.get_n(5))
+
 ```
+
+```text
+# tdlogger.txt
+
+exception= False
+count = False
+exec = True
+time = False
+return = False
+poll = True
+poll_period = 5
+
+```
+
 ```bash
 > python fib.py
 
-┎──────────TDLogger──────────┒
-┃  --Method get_n Executed-- ┃
-┃ Arguments: {               ┃
-┃     'n': 9,                ┃
-┃ }                          ┃
-┃ Times Executed: 1          ┃
-┃ Execution Time: 0.000s     ┃
-┃ Return Value: 21           ┃
+┎────────────────────────┒
+┃   --Configuration--    ┃
+┃ New Configuration: {   ┃
+┃     'exception': False ┃
+┃     'count': False     ┃
+┃     'exec': True       ┃
+┃     'time': False      ┃
+┃     'return': False    ┃
+┃     'poll': True       ┃
+┃     'poll_period': 5   ┃
+┃ }                      ┃
+┃               tdlogger ┃
+┖────────────────────────┚
+
+┎────────────────────────────┒
+┃    --Method Execution--    ┃
+┃ Alias: Fib Logger          ┃
+┃ Class: Fib                 ┃
+┃ Method: get_n              ┃
+┃ Count: 1                   ┃
+┃ Exec Time: 0.000s          ┃
+┃ Return Value: 3            ┃
 ┃ Return Type: <class 'int'> ┃
+┃ Arguments: {               ┃
+┃     'n': 5                 ┃
+┃ }                          ┃
+┃                   tdlogger ┃
 ┖────────────────────────────┚
+
+3
+
 ```

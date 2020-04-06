@@ -1,16 +1,10 @@
-import time
+from tdlogging.tdlogger import TDLogger
 
-from tdlogging.tdlogger import create_logger
-
-logger = create_logger()
+logger = TDLogger(alias="Sleep Logger")
 
 
-@logger.get_logger()
+@logger.config()
 class Fib:
-
-    @staticmethod
-    def do_nothing(lmao):
-        pass
 
     @staticmethod
     def get_n(n):
@@ -28,10 +22,5 @@ class Fib:
                 b = c
             return b
 
-    @staticmethod
-    def sleep(seconds):
-        time.sleep(seconds)
 
-
-while True:
-    Fib.sleep(1)
+print(Fib.get_n(5))

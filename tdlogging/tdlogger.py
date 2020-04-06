@@ -1,3 +1,4 @@
+import re
 import threading
 import traceback
 import time
@@ -6,90 +7,111 @@ from tdlogging.tdprinter import TDPrinter
 from tdlogging.tdreader import TDReader
 
 
-def create_logger(file_path="tdlogger.txt"):
-    """
-    Create a TdLogger Instance
-    :param file_path: config file path
-    :return: TdLogger
-    """
-
-    # Default config file
-    # Read tdlogger.txt file
-    text = TDReader.read_string_from_filepath(file_path)
-    config = TDReader.get_config_from_string(text)
-
-    # Return TdLogger Instance
-    return TDLogger(config, file_path)
-
-
 class TDLogger:
-    file_path = ""
-    # Config
-    config = {}
+    __default_config = {
+        "exception": False,
+        "count": False,
+        "exec": True,
+        "time": False,
+        "return": False,
+        "poll": False,
+        "poll_period": 5
+    }
 
-    # Info
-    methods = {}
+    current_config = __default_config.copy()
+    __information = {}
+    alias = ""
 
-    def __init__(self, config, file_path):
-        # A config is required
-        if config is None:
-            raise Exception("No Logger Config Specified")
+    def __init__(self, file_path="tdlogger.txt", config: str = None, alias=""):
+        self.alias = alias
+        if config is not None:
+            self.current_config.update(config)
+        else:
+            file_content = TDReader.read_from_file(file_path)
+            self.__set_config(file_content)
 
-        # Set config
-        self.config = config
-        print(TDPrinter.boxify("Configuration", TDLogger.get_obj_prettified("Configuration", config)))
+        if self.current_config["poll"] and config is None:
+            self.__file_path = file_path
+            self.__start_polling()
 
-        # Polling for changes
-        self.file_path = file_path
-        self.start_polling()
+    @staticmethod
+    def __parse_config(string: str) -> dict:
+        """
+        Parse the string into a config
+        :param string: input string
+        :return: a config dict
+        """
+        temp_config = {
 
-    def start_polling(self):
-        self.read_and_modify_config()
+        }
+        if string:
+            # Set configs
+            for line in string.split('\n'):
+                key_value = re.findall("\w+", line)
 
-    def read_and_modify_config(self):
-        if not self.config['poll']:
+                if len(key_value) == 2:
+                    if key_value[0] == "poll_period":
+                        if re.match("\d", key_value[1]):
+                            temp_config[key_value[0]] = int(key_value[1])
+                    else:
+                        temp_config[key_value[0]] = key_value[1].lower() == "true"
+        return temp_config
+
+    def __set_config(self, config_string: str = None) -> dict:
+        """
+        Set current config from string and return it
+        :param config_string: input string - usually from a file read
+        :return: current_config
+        """
+        result_config = TDLogger.__parse_config(config_string)
+
+        cached_config = self.current_config.copy()
+        self.current_config.update(result_config)
+        if cached_config != self.current_config:
+            printer = TDPrinter("Configuration")
+            printer.add_dict_message("New Configuration", self.current_config)
+            print(printer.get_message())
+
+        return result_config
+
+    def __start_polling(self):
+        if not self.current_config['poll']:
             return
 
-        threading.Timer(self.config['poll_period'], self.read_and_modify_config).start()
-        text = TDReader.read_string_from_filepath(self.file_path, True)
-        new_config = TDReader.get_config_from_string(text)
-        if new_config != self.config:
-            self.config = new_config
-            print(TDPrinter.boxify("Configuration updated", TDLogger.get_obj_prettified("New Configuration", new_config)))
+        delay = float(self.current_config['poll_period'])
+        threading.Timer(delay, self.__start_polling).start()
+
+        ### Update config ###
+        text = TDReader.read_from_file(self.__file_path)
+        self.__set_config(text)
 
     @staticmethod
-    def get_argument_prettified(func, argv):
+    def __get_arguments(func, argv):
         f_code = func.__code__
         func_parameter = f_code.co_varnames[:f_code.co_argcount + f_code.co_kwonlyargcount]
-        argument_pretty = ["Arguments: {"]
+        arguments = {}
         for i in range(len(func_parameter)):
-            argument_pretty.append("    '{}': {},".format(func_parameter[i], argv[i]))
-        argument_pretty.append("}")
-        return argument_pretty
+            if i >= len(argv):
+                arguments[func_parameter[i]] = "Undefined"
+            else:
+                arguments[func_parameter[i]] = argv[i]
+        return arguments
 
-    @staticmethod
-    def get_obj_prettified(name, obj: dict) -> list:
-        pretty = [name + ": {"]
-        for key in obj:
-            pretty.append("    '{}': {},".format(key, obj[key]))
-        pretty.append('}')
-        return pretty
+    def __start_timer(self, func_name):
+        self.__information[func_name]['elapsed_time'] = time.time()
 
-    def start_timer(self, func_name):
-        self.methods[func_name]['elapsed_time'] = time.time()
-
-    def end_timer(self, func_name):
-        start_time = self.methods[func_name]['elapsed_time']
+    def __end_timer(self, func_name):
+        start_time = self.__information[func_name]['elapsed_time']
         if start_time != -1:
             total_time = time.time() - start_time
-            self.methods[func_name]['elapsed_time'] = -1
+            self.__information[func_name]['elapsed_time'] = -1
             return total_time
 
         return None
 
-    def get_logger(self):
+    def config(self):
         """
-        Gets the logger from a TDLogger Instance
+        Gets the logger from a TDLogger Instance that is using config
         :return: logger
         """
 
@@ -101,68 +123,69 @@ class TDLogger:
 
                     function_name = func.__name__
 
-                    # Config
-                    log_exception = self.config['exec'] or self.config['exception']
-                    log_time = self.config['exec'] or self.config['time']
-                    log_count = self.config['exec'] or self.config['count']
-                    log_return = self.config['exec'] or self.config['return']
-                    log_any = self.config['exec'] or self.config['count'] or self.config['time'] or self.config[
-                        'return']
+                    log_exception = self.current_config['exec'] or self.current_config['exception']
+                    log_time = self.current_config['exec'] or self.current_config['time']
+                    log_count = self.current_config['exec'] or self.current_config['count']
+                    log_return = self.current_config['exec'] or self.current_config['return']
+                    log_any = self.current_config['exec'] or self.current_config['count'] \
+                              or self.current_config['time'] or self.current_config['return']
 
-                    # Incre Exec count
-                    self.methods[function_name]['execcount'] += 1
-                    # Get argument prettified
-                    argument_pretty = self.get_argument_prettified(func, argv)
-                    # Start Timer
+                    self.__information[function_name]['execcount'] += 1
+                    arguments = self.__get_arguments(func, argv)
+
                     if log_time:
-                        self.start_timer(function_name)
+                        self.__start_timer(function_name)
 
-                    # If catching exceptions
+                    # TODO: Make a new decorator for this
                     if log_exception:
-                        # Put function call in try except
                         try:
                             result = func(*argv, **kwargs)
                         except Exception:
-                            # Log Everything
-                            message = [i for i in argument_pretty]
+                            printer = TDPrinter("Exception Occurred")
+                            printer.add_message("Class: {}".format("TempClass"))
+                            printer.add_message("Method: {}".format(function_name))
+                            printer.add_message("Count: {}".format(self.__information[function_name]['execcount']))
+                            if log_time:
+                                total_time = self.__end_timer(function_name)
+                                printer.add_message("Exec Time: {:.3f}s".format(total_time))
+                            printer.add_dict_message("Arguments", arguments)
 
-                            message.append("Times Executed: {}".format(self.methods[function_name]['execcount']))
-                            if self.config['exec'] or self.config['time']:
-                                total_time = self.end_timer(function_name)
-                                message.append(
-                                    "Execution Time: {:.3f}s".format(total_time))
-
-                            print(TDPrinter.boxify("Method {} had an exception".format(function_name), message))
+                            print(printer.get_message())
                             print(str(traceback.format_exc()))
 
-                            # Re-throw Exeception
+                            # Re-throw Exception
                             raise
                     else:
                         result = func(*argv, **kwargs)
 
-                    # End timer
                     total_time = None
                     if log_time:
-                        total_time = self.end_timer(function_name)
+                        total_time = self.__end_timer(function_name)
 
                     if log_any:
                         # Log Arguments
-                        message = [i for i in argument_pretty]
+                        printer = TDPrinter("Method Execution")
+                        if self.alias:
+                            printer.add_message("Alias: {}".format(self.alias))
+                        printer.add_message("Class: {}".format(self.__information[function_name]['class_name']))
+                        printer.add_message("Method: {}".format(function_name))
 
                         # Log Count
                         if log_count:
-                            message.append("Times Executed: {}".format(self.methods[function_name]['execcount']))
+                            printer.add_message("Count: {}".format(self.__information[function_name]['execcount']))
 
                         # Log Time
                         if log_time:
-                            message.append("Execution Time: {:.3f}s".format(total_time))
+                            printer.add_message("Exec Time: {:.3f}s".format(total_time))
 
                         # Log Return
                         if log_return:
-                            message.append("Return Value: {}".format(result))
-                            message.append("Return Type: {}".format(type(result)))
+                            printer.add_message("Return Value: {}".format(result))
+                            printer.add_message("Return Type: {}".format(type(result)))
 
-                        print(TDPrinter.boxify("Method {} Executed".format(function_name), message))
+                        printer.add_dict_message("Arguments", arguments)
+
+                        print(printer.get_message())
 
                     return result
 
@@ -174,9 +197,10 @@ class TDLogger:
                     func = getattr(cls, attr)
 
                     # init methods
-                    self.methods[func.__name__] = {
+                    self.__information[func.__name__] = {
                         "execcount": 0,
-                        "elapsed_time": -1.0
+                        "elapsed_time": -1.0,
+                        "class_name": cls.__name__
                     }
 
                     setattr(cls, attr, innerLogger(func))
