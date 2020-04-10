@@ -3,5 +3,5 @@ count = False
 exec = True
 time = False
 return = False
-poll = True
+poll = False
 poll_period = 5

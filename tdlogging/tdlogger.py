@@ -1,3 +1,4 @@
+import os
 import re
 import threading
 import traceback
@@ -6,8 +7,170 @@ import time
 from tdlogging.tdprinter import TDPrinter
 from tdlogging.tdreader import TDReader
 
-def ApplyDecorators():
-    pass
+
+def user_prompt(question: str) -> bool:
+    """
+    A yes or no prompt I copied from stackoverflow
+    :param question: Input Question
+    :return: True or False
+    """
+    from distutils.util import strtobool
+
+    while True:
+        user_input = input(question + " [y/n]: ").lower()
+        try:
+            result = strtobool(user_input)
+            return result
+        except ValueError:
+            print("Please use y/n or yes/no.\n")
+
+
+def verbose_print(message, verbose):
+    if verbose:
+        print(message)
+
+
+def ApplyDecorators(target_dir, import_root, var_name="troppydash_logger", force=False, verbose=True):
+    """
+    DANGEROUS, use with caution\n
+    Apply decorators to every python file in the Directory, and also marking the file\n
+    :param verbose: Whether to log changes
+    :param target_dir: Directory that is affected
+    :param import_root: Python import name of your current file, e.p. tdlogging.tdprinter
+    :param var_name: Variable name of the TDLogger instance in your file
+    :param force: Whether to ignore applying at the current file level
+    :return:
+    """
+    comment = "## Edited by TDLogger"
+    import_line = "from {} import {}".format(import_root, var_name)
+    dec_line = "@{}".format(var_name)
+
+    file_names_to_modify = []
+    files_to_modify = []
+
+    # Check target_dir
+    if target_dir == os.getcwd() and not force:
+        raise Exception("It is dangerous to apply decorators at the current file level, \n"
+                        "Overwrite this error with 'force=True'")
+
+    for root, dirs, files in os.walk(target_dir):
+        for name in files:
+            if name.endswith('.py') and not name.startswith('__init__'):
+                files_to_modify.append(os.path.join(root, name))
+                file_names_to_modify.append(name)
+
+    if not force:
+        if not user_prompt("The following files will be modified .\n"
+                           "{}\n"
+                           "Continue ?:".format(files_to_modify)):
+            print("Crisis diverted")
+            return
+
+    lines_modified = 0
+    files_modified = 0
+    for index, file in enumerate(files_to_modify):
+
+        data = None
+        with open(file, 'r') as f:
+            data = f.readlines()
+
+        # File Open Failure
+        if data is None:
+            verbose_print("File '{}' failed to open, skipping...".format(files_to_modify[index]), verbose)
+            continue
+
+        if len(data) > 0 and data[0].find(comment) != -1:
+            verbose_print("File '{}' has already been marked, skipping...".format(files_to_modify[index]), verbose)
+            continue
+
+        lines_modified += 2
+        files_modified += 1
+        data.insert(0, import_line + "\n")
+        data.insert(0, comment + "\n")
+
+        for i, line in enumerate(data):
+            if re.search("class\\s\\w*:", line):
+                if data[i - 1].find(dec_line) == -1:
+                    data.insert(i, dec_line + "\n")
+                    lines_modified += 1
+                    if data[i - 1] != "\n":
+                        data.insert(i, "\n")
+                        lines_modified += 1
+        with open(file, 'w') as f:
+            f.writelines(data)
+
+    verbose_print("Added {} lines to {} file(s) .".format(lines_modified, files_modified), True)
+
+
+def RemoveDecorators(target_dir, import_root, var_name="troppydash_logger", force=False, verbose=True):
+    """
+    DANGEROUS, use with caution\n
+    Remove decorators to every python file in the Directory, and also removing the mark headings\n
+    :param verbose: Whether to log changes
+    :param target_dir: Directory that is affected
+    :param import_root: Python import name of your current file, e.p. tdlogging.tdprinter
+    :param var_name: Variable name of the TDLogger instance in your file
+    :param force: Whether to ignore applying at the current file level
+    :return:
+    """
+    comment = "## Edited by TDLogger"
+    import_line = "from {} import {}".format(import_root, var_name)
+    dec_line = "@{}".format(var_name)
+
+    file_names_to_modify = []
+    files_to_modify = []
+
+    if target_dir == os.getcwd() and not force:
+        raise Exception("It is dangerous to remove decorators at the current file level, \n"
+                        "Overwrite this error with 'force=True'")
+
+    for root, dirs, files in os.walk(target_dir):
+        for name in files:
+            if name.endswith('.py') and not name.startswith('__init__'):
+                files_to_modify.append(os.path.join(root, name))
+                file_names_to_modify.append(name)
+
+    if not force:
+        if not user_prompt("The following files will be modified .\n"
+                           "{}\n"
+                           "Continue ?:".format(files_to_modify)):
+            print("Crisis diverted")
+            return
+
+    lines_modified = 0
+    files_modified = 0
+    # Loop through all detected files
+    for index, file in enumerate(files_to_modify):
+
+        data = None
+        with open(file, 'r') as f:
+            data = f.readlines()
+
+         # File Open Failure
+        if data is None:
+            verbose_print("File '{}' failed to open, skipping...".format(files_to_modify[index]), verbose)
+            continue
+
+        # Continue if the file does not have the comment
+        if len(data) > 0 and data[0].find(comment) == -1:
+            verbose_print("File '{}' is unmarked, skipping...".format(files_to_modify[index]), verbose)
+            continue
+
+        lines_modified += 1
+        files_modified += 1
+        # Remove the comment
+        data.pop(0)
+
+        for i, line in enumerate(data):
+            if line.find(dec_line) != -1 or line.find(import_line) != -1:
+                data.pop(i)
+                lines_modified += 1
+
+        with open(file, 'w') as f:
+            f.writelines(data)
+
+    verbose_print("Removed {} lines from {} file(s) .".format(lines_modified, files_modified), True)
+
 
 class TDLogger:
     __default_config = {
@@ -36,6 +199,12 @@ class TDLogger:
     __information = {}
 
     def __init__(self, file_path="tdlogger.txt", config: str = None, alias=""):
+        """
+        Construct an instance of TDLogger
+        :param file_path: config file path - optional
+        :param config: config dict - optional
+        :param alias: alias
+        """
         self.alias = alias
         if config is not None:
             self.current_config.update(config)
@@ -158,7 +327,8 @@ class TDLogger:
                             printer = TDPrinter("Exception Occurred")
                             printer.add_message("Class: {}".format(class_name))
                             printer.add_message("Method: {}".format(function_name))
-                            printer.add_message("Count: {}".format(self.__information[class_name][function_name]['execcount']))
+                            printer.add_message(
+                                "Count: {}".format(self.__information[class_name][function_name]['execcount']))
                             if log_time:
                                 total_time = self.__end_timer(function_name, class_name)
                                 printer.add_message("Exec Time: {:.3f}s".format(total_time))
@@ -186,7 +356,8 @@ class TDLogger:
 
                         # Log Count
                         if log_count:
-                            printer.add_message("Count: {}".format(self.__information[class_name][function_name]['execcount']))
+                            printer.add_message(
+                                "Count: {}".format(self.__information[class_name][function_name]['execcount']))
 
                         # Log Time
                         if log_time:
@@ -221,5 +392,3 @@ class TDLogger:
             return cls
 
         return class_logger
-
-

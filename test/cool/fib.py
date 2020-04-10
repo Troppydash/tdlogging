@@ -1,6 +1,4 @@
-from test.log import logger
 
-@logger
 class Fib:
 
     @staticmethod
