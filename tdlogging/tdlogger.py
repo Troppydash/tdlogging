@@ -36,9 +36,9 @@ def ApplyDecorators(target_dir, import_root, var_name="troppydash_logger", force
     Apply decorators to every python file in the Directory, and also marking the file\n
     :param verbose: Whether to log changes
     :param target_dir: Directory that is affected
-    :param import_root: Python import name of your current file, e.p. tdlogging.tdprinter
+    :param import_root: Python import name of your tdlogger instance, e.p. tdlogging.tdprinter
     :param var_name: Variable name of the TDLogger instance in your file
-    :param force: Whether to ignore applying at the current file level
+    :param force: Apply Changes without confirmation
     :return:
     """
     comment = "## Edited by TDLogger"
@@ -108,9 +108,9 @@ def RemoveDecorators(target_dir, import_root, var_name="troppydash_logger", forc
     Remove decorators to every python file in the Directory, and also removing the mark headings\n
     :param verbose: Whether to log changes
     :param target_dir: Directory that is affected
-    :param import_root: Python import name of your current file, e.p. tdlogging.tdprinter
+    :param import_root: Python import name of your tdlogger instance, e.p. tdlogging.tdprinter
     :param var_name: Variable name of the TDLogger instance in your file
-    :param force: Whether to ignore applying at the current file level
+    :param force: Apply Changes without confirmation
     :return:
     """
     comment = "## Edited by TDLogger"

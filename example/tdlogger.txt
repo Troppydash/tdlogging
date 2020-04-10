@@ -1,4 +1,4 @@
-exception= False
+exception = False
 count = False
 exec = True
 time = False
