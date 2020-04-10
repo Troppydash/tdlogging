@@ -6,6 +6,8 @@ import time
 from tdlogging.tdprinter import TDPrinter
 from tdlogging.tdreader import TDReader
 
+def ApplyDecorators():
+    pass
 
 class TDLogger:
     __default_config = {
@@ -19,8 +21,19 @@ class TDLogger:
     }
 
     current_config = __default_config.copy()
-    __information = {}
     alias = ""
+
+    """
+    information: {
+        "class_name": {
+            "method_name": {
+                "execcount": 1,
+                "elapsed_time:" -1
+            }
+        }
+    }
+    """
+    __information = {}
 
     def __init__(self, file_path="tdlogger.txt", config: str = None, alias=""):
         self.alias = alias
@@ -97,14 +110,14 @@ class TDLogger:
                 arguments[func_parameter[i]] = argv[i]
         return arguments
 
-    def __start_timer(self, func_name):
-        self.__information[func_name]['elapsed_time'] = time.time()
+    def __start_timer(self, func_name, class_name):
+        self.__information[class_name][func_name]['elapsed_time'] = time.time()
 
-    def __end_timer(self, func_name):
-        start_time = self.__information[func_name]['elapsed_time']
+    def __end_timer(self, func_name, class_name):
+        start_time = self.__information[class_name][func_name]['elapsed_time']
         if start_time != -1:
             total_time = time.time() - start_time
-            self.__information[func_name]['elapsed_time'] = -1
+            self.__information[class_name][func_name]['elapsed_time'] = -1
             return total_time
 
         return None
@@ -122,6 +135,7 @@ class TDLogger:
                     result = None
 
                     function_name = func.__name__
+                    class_name = cls.__name__
 
                     log_exception = self.current_config['exec'] or self.current_config['exception']
                     log_time = self.current_config['exec'] or self.current_config['time']
@@ -130,11 +144,11 @@ class TDLogger:
                     log_any = self.current_config['exec'] or self.current_config['count'] \
                               or self.current_config['time'] or self.current_config['return']
 
-                    self.__information[function_name]['execcount'] += 1
+                    self.__information[class_name][function_name]['execcount'] += 1
                     arguments = self.__get_arguments(func, argv)
 
                     if log_time:
-                        self.__start_timer(function_name)
+                        self.__start_timer(function_name, class_name)
 
                     # TODO: Make a new decorator for this
                     if log_exception:
@@ -142,11 +156,11 @@ class TDLogger:
                             result = func(*argv, **kwargs)
                         except Exception:
                             printer = TDPrinter("Exception Occurred")
-                            printer.add_message("Class: {}".format("TempClass"))
+                            printer.add_message("Class: {}".format(class_name))
                             printer.add_message("Method: {}".format(function_name))
-                            printer.add_message("Count: {}".format(self.__information[function_name]['execcount']))
+                            printer.add_message("Count: {}".format(self.__information[class_name][function_name]['execcount']))
                             if log_time:
-                                total_time = self.__end_timer(function_name)
+                                total_time = self.__end_timer(function_name, class_name)
                                 printer.add_message("Exec Time: {:.3f}s".format(total_time))
                             printer.add_dict_message("Arguments", arguments)
 
@@ -160,19 +174,19 @@ class TDLogger:
 
                     total_time = None
                     if log_time:
-                        total_time = self.__end_timer(function_name)
+                        total_time = self.__end_timer(function_name, class_name)
 
                     if log_any:
                         # Log Arguments
                         printer = TDPrinter("Method Execution")
                         if self.alias:
                             printer.add_message("Alias: {}".format(self.alias))
-                        printer.add_message("Class: {}".format(self.__information[function_name]['class_name']))
+                        printer.add_message("Class: {}".format(class_name))
                         printer.add_message("Method: {}".format(function_name))
 
                         # Log Count
                         if log_count:
-                            printer.add_message("Count: {}".format(self.__information[function_name]['execcount']))
+                            printer.add_message("Count: {}".format(self.__information[class_name][function_name]['execcount']))
 
                         # Log Time
                         if log_time:
@@ -192,18 +206,20 @@ class TDLogger:
                 return wrapper
 
             # Apply inside logger to every method
+            self.__information[cls.__name__] = {}
             for attr in cls.__dict__:
                 if callable(getattr(cls, attr)):
                     func = getattr(cls, attr)
 
                     # init methods
-                    self.__information[func.__name__] = {
+                    self.__information[cls.__name__][func.__name__] = {
                         "execcount": 0,
                         "elapsed_time": -1.0,
-                        "class_name": cls.__name__
                     }
 
                     setattr(cls, attr, innerLogger(func))
             return cls
 
         return class_logger
+
+
