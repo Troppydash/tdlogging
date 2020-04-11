@@ -93,9 +93,6 @@ def ApplyDecorators(target_dir, import_root, var_name="troppydash_logger", force
                 if data[i - 1].find(dec_line) == -1:
                     data.insert(i, dec_line + "\n")
                     lines_modified += 1
-                    if data[i - 1] != "\n":
-                        data.insert(i, "\n")
-                        lines_modified += 1
         with open(file, 'w') as f:
             f.writelines(data)
 
@@ -146,7 +143,7 @@ def RemoveDecorators(target_dir, import_root, var_name="troppydash_logger", forc
         with open(file, 'r') as f:
             data = f.readlines()
 
-         # File Open Failure
+        # File Open Failure
         if data is None:
             verbose_print("File '{}' failed to open, skipping...".format(files_to_modify[index]), verbose)
             continue
@@ -249,6 +246,7 @@ class TDLogger:
 
         cached_config = self.current_config.copy()
         self.current_config.update(result_config)
+
         if cached_config != self.current_config:
             printer = TDPrinter("Configuration")
             printer.add_dict_message("New Configuration", self.current_config)
