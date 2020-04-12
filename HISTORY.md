@@ -1,5 +1,11 @@
 # Change log
 
+## [0.0.5] - 2020-04-12
+
+### Added
+- `ApplyDecorator()`
+- `RemoveDecorator()`
+
 ## [0.0.4] - 2020-04-02
 
 Fixed unable to install
