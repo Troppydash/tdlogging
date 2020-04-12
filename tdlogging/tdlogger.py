@@ -4,11 +4,11 @@ import threading
 import traceback
 import time
 
-from tdlogging.tdprinter import TDPrinter
+from tdlogging.tdprinter import TDPrinter, BoxPrinter
 from tdlogging.tdreader import TDReader
 
 
-def user_prompt(question: str) -> bool:
+def __user_prompt(question: str) -> bool:
     """
     A yes or no prompt I copied from stackoverflow
     :param question: Input Question
@@ -25,7 +25,7 @@ def user_prompt(question: str) -> bool:
             print("Please use y/n or yes/no.\n")
 
 
-def verbose_print(message, verbose):
+def __verbose_print(message, verbose):
     if verbose:
         print(message)
 
@@ -60,9 +60,9 @@ def ApplyDecorators(target_dir, import_root, var_name="troppydash_logger", force
                 file_names_to_modify.append(name)
 
     if not force:
-        if not user_prompt("The following files will be modified .\n"
-                           "{}\n"
-                           "Continue ?:".format(files_to_modify)):
+        if not __user_prompt("The following files will be modified .\n"
+                             "{}\n"
+                             "Continue ?:".format(files_to_modify)):
             print("Crisis diverted")
             return
 
@@ -76,11 +76,11 @@ def ApplyDecorators(target_dir, import_root, var_name="troppydash_logger", force
 
         # File Open Failure
         if data is None:
-            verbose_print("File '{}' failed to open, skipping...".format(files_to_modify[index]), verbose)
+            __verbose_print("File '{}' failed to open, skipping...".format(files_to_modify[index]), verbose)
             continue
 
         if len(data) > 0 and data[0].find(comment) != -1:
-            verbose_print("File '{}' has already been marked, skipping...".format(files_to_modify[index]), verbose)
+            __verbose_print("File '{}' has already been marked, skipping...".format(files_to_modify[index]), verbose)
             continue
 
         lines_modified += 2
@@ -96,7 +96,7 @@ def ApplyDecorators(target_dir, import_root, var_name="troppydash_logger", force
         with open(file, 'w') as f:
             f.writelines(data)
 
-    verbose_print("Added {} lines to {} file(s) .".format(lines_modified, files_modified), True)
+    __verbose_print("Added {} lines to {} file(s) .".format(lines_modified, files_modified), True)
 
 
 def RemoveDecorators(target_dir, import_root, var_name="troppydash_logger", force=False, verbose=True):
@@ -128,9 +128,9 @@ def RemoveDecorators(target_dir, import_root, var_name="troppydash_logger", forc
                 file_names_to_modify.append(name)
 
     if not force:
-        if not user_prompt("The following files will be modified .\n"
-                           "{}\n"
-                           "Continue ?:".format(files_to_modify)):
+        if not __user_prompt("The following files will be modified .\n"
+                             "{}\n"
+                             "Continue ?:".format(files_to_modify)):
             print("Crisis diverted")
             return
 
@@ -145,12 +145,12 @@ def RemoveDecorators(target_dir, import_root, var_name="troppydash_logger", forc
 
         # File Open Failure
         if data is None:
-            verbose_print("File '{}' failed to open, skipping...".format(files_to_modify[index]), verbose)
+            __verbose_print("File '{}' failed to open, skipping...".format(files_to_modify[index]), verbose)
             continue
 
         # Continue if the file does not have the comment
         if len(data) > 0 and data[0].find(comment) == -1:
-            verbose_print("File '{}' is unmarked, skipping...".format(files_to_modify[index]), verbose)
+            __verbose_print("File '{}' is unmarked, skipping...".format(files_to_modify[index]), verbose)
             continue
 
         lines_modified += 1
@@ -166,14 +166,14 @@ def RemoveDecorators(target_dir, import_root, var_name="troppydash_logger", forc
         with open(file, 'w') as f:
             f.writelines(data)
 
-    verbose_print("Removed {} lines from {} file(s) .".format(lines_modified, files_modified), True)
+    __verbose_print("Removed {} lines from {} file(s) .".format(lines_modified, files_modified), True)
 
 
 class TDLogger:
     __default_config = {
         "exception": False,
-        "count": False,
-        "exec": True,
+        "count": True,
+        "exec": False,
         "time": False,
         "return": False,
         "poll": False,
@@ -195,23 +195,29 @@ class TDLogger:
     """
     __information = {}
 
-    def __init__(self, file_path="tdlogger.txt", config: str = None, alias=""):
+    def __init__(self, file_path="tdlogger.txt", config: dict = None, alias="", printer=TDPrinter()):
         """
         Construct an instance of TDLogger
         :param file_path: config file path - optional
         :param config: config dict - optional
         :param alias: alias
         """
+        self.printer = printer
         self.alias = alias
+
         if config is not None:
-            self.current_config.update(config)
+            self.__set_config(config)
         else:
             file_content = TDReader.read_from_file(file_path)
-            self.__set_config(file_content)
+            result_config = TDLogger.__parse_config(file_content)
+            self.__set_config(result_config)
 
         if self.current_config["poll"] and config is None:
             self.__file_path = file_path
             self.__start_polling()
+
+    def get_information(self):
+        return self.__information
 
     @staticmethod
     def __parse_config(string: str) -> dict:
@@ -220,9 +226,7 @@ class TDLogger:
         :param string: input string
         :return: a config dict
         """
-        temp_config = {
-
-        }
+        updated_config = TDLogger.__default_config
         if string:
             # Set configs
             for line in string.split('\n'):
@@ -231,28 +235,27 @@ class TDLogger:
                 if len(key_value) == 2:
                     if key_value[0] == "poll_period":
                         if re.match("\d", key_value[1]):
-                            temp_config[key_value[0]] = int(key_value[1])
+                            updated_config[key_value[0]] = int(key_value[1])
                     else:
-                        temp_config[key_value[0]] = key_value[1].lower() == "true"
-        return temp_config
+                        updated_config[key_value[0]] = key_value[1].lower() == "true"
 
-    def __set_config(self, config_string: str = None) -> dict:
+        return updated_config
+
+    def __set_config(self, new_config: dict = None) -> dict:
         """
         Set current config from string and return it
-        :param config_string: input string - usually from a file read
+        :param new_config: input string - usually from a file read
         :return: current_config
         """
-        result_config = TDLogger.__parse_config(config_string)
 
-        cached_config = self.current_config.copy()
-        self.current_config.update(result_config)
+        if new_config != self.current_config:
+            self.printer.set_title("Configuration")
+            self.printer.add_message("Alias", self.alias)
+            self.printer.add_dict_message("New Configuration", new_config)
+            self.printer.log_message()
+            self.current_config.update(new_config)
 
-        if cached_config != self.current_config:
-            printer = TDPrinter("Configuration")
-            printer.add_dict_message("New Configuration", self.current_config)
-            print(printer.get_message())
-
-        return result_config
+        return new_config
 
     def __start_polling(self):
         if not self.current_config['poll']:
@@ -262,8 +265,9 @@ class TDLogger:
         threading.Timer(delay, self.__start_polling).start()
 
         ### Update config ###
-        text = TDReader.read_from_file(self.__file_path)
-        self.__set_config(text)
+        file_content = TDReader.read_from_file(self.__file_path)
+        result_config = TDLogger.__parse_config(file_content)
+        self.__set_config(result_config)
 
     @staticmethod
     def __get_arguments(func, argv):
@@ -322,17 +326,19 @@ class TDLogger:
                         try:
                             result = func(*argv, **kwargs)
                         except Exception:
-                            printer = TDPrinter("Exception Occurred")
-                            printer.add_message("Class: {}".format(class_name))
-                            printer.add_message("Method: {}".format(function_name))
-                            printer.add_message(
-                                "Count: {}".format(self.__information[class_name][function_name]['execcount']))
+                            self.printer.set_title("Exception")
+                            if self.alias:
+                                self.printer.add_message("Alias", self.alias)
+                            self.printer.add_message("Class Name", class_name)
+                            self.printer.add_message("Method Name", function_name)
+                            self.printer.add_message(
+                                "Run Count", self.__information[class_name][function_name]['execcount'])
                             if log_time:
                                 total_time = self.__end_timer(function_name, class_name)
-                                printer.add_message("Exec Time: {:.3f}s".format(total_time))
-                            printer.add_dict_message("Arguments", arguments)
+                                self.printer.add_message("Run Time", "{:.3f}s".format(total_time))
+                            self.printer.add_dict_message("Run Time Arguments", arguments)
 
-                            print(printer.get_message())
+                            self.printer.log_message(level='error')
                             print(str(traceback.format_exc()))
 
                             # Re-throw Exception
@@ -346,29 +352,29 @@ class TDLogger:
 
                     if log_any:
                         # Log Arguments
-                        printer = TDPrinter("Method Execution")
+                        self.printer.set_title("Method \"{}\"".format(function_name))
                         if self.alias:
-                            printer.add_message("Alias: {}".format(self.alias))
-                        printer.add_message("Class: {}".format(class_name))
-                        printer.add_message("Method: {}".format(function_name))
+                            self.printer.add_message("Alias", self.alias)
+                        self.printer.add_message("Class Name", class_name)
+                        self.printer.add_message("Method Name", function_name)
 
                         # Log Count
                         if log_count:
-                            printer.add_message(
-                                "Count: {}".format(self.__information[class_name][function_name]['execcount']))
+                            self.printer.add_message(
+                                "Run Count", self.__information[class_name][function_name]['execcount'])
 
                         # Log Time
                         if log_time:
-                            printer.add_message("Exec Time: {:.3f}s".format(total_time))
+                            self.printer.add_message("Run Time", "{:.3f}s".format(total_time))
 
                         # Log Return
                         if log_return:
-                            printer.add_message("Return Value: {}".format(result))
-                            printer.add_message("Return Type: {}".format(type(result)))
+                            self.printer.add_message("Return Value", result)
+                            self.printer.add_message("Return Type", str(type(result)))
 
-                        printer.add_dict_message("Arguments", arguments)
+                        self.printer.add_dict_message("Run Time Arguments", arguments)
 
-                        print(printer.get_message())
+                        self.printer.log_message()
 
                     return result
 
