@@ -56,7 +56,9 @@ class BoxPrinter(TDPrinter):
     __width = 50
     messages = []
 
-    def __init__(self, logging_config=None):
+    def __init__(self, logging_config=None, symbols=None):
+        if symbols is not None:
+            self.__symbols.update(symbols)
         super().__init__(logging_config)
 
     def set_title(self, title) -> None:
@@ -185,3 +187,15 @@ class OneLinerPrinter(TDPrinter):
 
         self.messages = ""
         self.set_title("")
+
+
+class CoolPrinter(BoxPrinter):
+    def __init__(self, logging_config=None,):
+        super().__init__(logging_config, {
+            "top-left": "*",
+            "top-right": "*",
+            "bottom-left": "*",
+            "bottom-right": "*",
+            "left-right": "*",
+            "top-bottom": "*",
+        })
